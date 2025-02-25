@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-0tnk^1xkg64w8)v_cr*qmx1nh&jp9!+xdsjt=+96icros0-mbd
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'channels',
     'corsheaders',
     'Realtime',
+    'drf_yasg',
 ]
 
 MIDDLEWARE = [
@@ -84,9 +85,8 @@ TEMPLATES = [
 ]
 
 # CORS settings
-CORS_ALLOW_ALL_ORIGINS = True #for devevelopment purposes only
+CORS_ALLOW_ALL_ORIGINS = False #for devevelopment purposes only
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:8000",
     "http://127.0.0.1:8000",
 ]
 
@@ -152,6 +152,15 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
+
+SWAGGER_SETTINGS = {
+    'SECURITY_DEFINITIONS': {
+        'Basic': {
+            'type': 'basic'
+        }
+    },
+    'USE_SESSION_AUTH': False,  # Disable session authentication for Swagger
+}
 
 
 # Internationalization
