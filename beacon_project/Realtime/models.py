@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from django.contrib.gis.db import models as gis_models
 
 class BeaconDevice(models.Model):
     uuid = models.UUIDField(unique=True)
@@ -17,6 +18,7 @@ class ProximityEvent(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     distance = models.FloatField()  # in meters
     timestamp = models.DateTimeField(auto_now_add=True)
+    motion_detected = models.BooleanField(default=False)
     
     class Meta:
         ordering = ['-timestamp']
