@@ -2,7 +2,9 @@ import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from .models import ProximityEvent, Notification, BeaconDevice
+import logging
 
+logger = logging.getLogger(__name__)
 class BeaconConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.user = self.scope["user"]
@@ -33,6 +35,22 @@ class BeaconConsumer(AsyncWebsocketConsumer):
             }))
 
     @database_sync_to_async
+    def mark_notification_read(self, notification_id):
+        notification = Notification.objects.get(id=notification_id, user=self.user)
+        notification.is_read = True
+        notification.save()
+    
+    
+    async def handle_notification_ack(self, data):
+        try:
+            notification_id = data['notification_id']
+            await self.mark_notification_read(notification_id)
+            await self.send(text_data=json.dumps({'status': 'Notification acknowledged'}))
+        except Notification.DoesNotExist:
+            await self.send(text_data=json.dumps({'error': 'Notification not found'}))
+        except Exception as e:
+            await self.send(text_data=json.dumps({'error': str(e)}))
+    
     def create_proximity_event(self, beacon_id, distance):
         beacon = BeaconDevice.objects.get(id=beacon_id)
         return ProximityEvent.objects.create(
@@ -58,9 +76,8 @@ class BeaconConsumer(AsyncWebsocketConsumer):
                 }
             )
         except Exception as e:
-            await self.send(text_data=json.dumps({
-                'error': str(e)
-            }))
+            logger.error(f"Proximity event error: {str(e)}", exc_info=True)
+            await self.send(text_data=json.dumps({'error': str(e)}))
 
     async def proximity_update(self, event):
         await self.send(text_data=json.dumps(event))
