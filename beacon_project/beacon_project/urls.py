@@ -22,9 +22,9 @@ from rest_framework import permissions
 
 schema_view = get_schema_view(
     openapi.Info(
-        title="API Documentation",
+        title="BeaconX Pro W6 API",
         default_version='v1',
-        description="Detailed documentation of all APIs",
+        description="API for real-time communication and promotion management with MOKOSmart BeaconX Pro W6 wristband beacons.",
         terms_of_service="https://www.example.com/terms/",
         contact=openapi.Contact(email="email@example.com"),  
         license=openapi.License(name="BSD License"),
