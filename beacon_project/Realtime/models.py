@@ -5,7 +5,7 @@ from django.contrib.gis.db import models as gis_models
 class BeaconDevice(models.Model):
     uuid = models.UUIDField(unique=True)
     name = models.CharField(max_length=100)
-    location = models.CharField(max_length=200)
+    location = gis_models.PointField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
