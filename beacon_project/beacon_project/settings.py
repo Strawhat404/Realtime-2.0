@@ -85,9 +85,10 @@ TEMPLATES = [
 ]
 
 # CORS settings
-CORS_ALLOW_ALL_ORIGINS = False #for devevelopment purposes only
+CORS_ALLOW_ALL_ORIGINS = True #for devevelopment purposes only
 CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:8000",
+    "https://beacon-websocket.onrender.com"
 ]
 
 CORS_ALLOW_METHODS = [
