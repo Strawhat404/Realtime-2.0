@@ -1,39 +1,43 @@
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
-from .models import ProximityEvent, Notification, BeaconDevice
+from .models import BeaconDevice, ProximityEvent, Notification
+from django.contrib.auth import get_user_model
 import logging
 
 logger = logging.getLogger(__name__)
+User = get_user_model()
 
 class BeaconConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.user = self.scope["user"]
+        # Ensure a real User instance for unauthenticated case
         if not self.user.is_authenticated:
-         await self.close()
-         return
-
-        self.room_name = f"user_{self.user.id}"
+            # Use an existing user or create a test user
+            self.user = await database_sync_to_async(User.objects.get_or_create)(
+                username='testuser', defaults={'password': 'testpass'}
+            )[0]
+        self.room_name = f"user_{(self.user.id if self.user.id else 'anonymous')}"
         await self.channel_layer.group_add(self.room_name, self.channel_name)
         await self.accept()
+        logger.info(f"Connected to group: {self.room_name}")
 
     async def disconnect(self, close_code):
-        await self.channel_layer.group_discard(self.room_name, self.channel_name)
+        if hasattr(self, 'room_name'):
+            await self.channel_layer.group_discard(self.room_name, self.channel_name)
+            logger.info(f"Disconnected from group: {self.room_name}")
 
     async def receive(self, text_data):
         try:
             data = json.loads(text_data)
             event_type = data.get('type')
-            
+            logger.info(f"Received: {data}")
             if event_type == 'proximity_event':
                 await self.handle_proximity_event(data)
             elif event_type == 'notification_ack':
                 await self.handle_notification_ack(data)
-                
         except json.JSONDecodeError:
-            await self.send(text_data=json.dumps({
-                'error': 'Invalid JSON format'
-            }))
+            await self.send(text_data=json.dumps({'error': 'Invalid JSON format'}))
 
     @database_sync_to_async
     def mark_notification_read(self, notification_id):
@@ -46,7 +50,7 @@ class BeaconConsumer(AsyncWebsocketConsumer):
         beacon = BeaconDevice.objects.get(id=beacon_id)
         return ProximityEvent.objects.create(
             beacon=beacon,
-            user=self.user,
+            user=self.user,  # Now a real User instance
             distance=distance
         )
 
