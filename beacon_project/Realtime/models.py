@@ -1,91 +1,41 @@
-import json
-from channels.generic.websocket import AsyncWebsocketConsumer
-from channels.db import database_sync_to_async
-from .models import BeaconDevice, ProximityEvent, Notification
-from django.contrib.auth import get_user_model
-import logging
+from django.db import models
+from django.conf import settings
+# from django.contrib.gis.db import models as gis_models
 
-logger = logging.getLogger(__name__)
-User = get_user_model()
+class BeaconDevice(models.Model):
+    uuid = models.UUIDField(unique=True)
+    name = models.CharField(max_length=100)
+    # location = gis_models.PointField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
-class BeaconConsumer(AsyncWebsocketConsumer):
-    async def connect(self):
-        self.user = self.scope["user"]
-        # Temp: Use a test user for local testing
-        try:
-            user, created = await database_sync_to_async(User.objects.get_or_create)(
-                username='testuser', defaults={'password': 'testpass'}
-            )
-            self.user = user
-        except Exception as e:
-            logger.error(f"Failed to get or create testuser: {str(e)}")
-            await self.close()
-            return
-        self.room_name = f"user_{self.user.id}"
-        await self.channel_layer.group_add(self.room_name, self.channel_name)
-        await self.accept()
-        logger.info(f"Connected to group: {self.room_name}")
+    def __str__(self):
+        return f"{self.name} - {self.uuid}"
 
-    async def disconnect(self, close_code):
-        if hasattr(self, 'room_name'):
-            await self.channel_layer.group_discard(self.room_name, self.channel_name)
-            logger.info(f"Disconnected from group: {self.room_name}")
+class ProximityEvent(models.Model):
+    beacon = models.ForeignKey(BeaconDevice, on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    distance = models.FloatField()  # in meters
+    timestamp = models.DateTimeField(auto_now_add=True)
+    motion_detected = models.BooleanField(default=False)
+    
+    class Meta:
+        ordering = ['-timestamp']
 
-    async def receive(self, text_data):
-        try:
-            data = json.loads(text_data)
-            event_type = data.get('type')
-            logger.info(f"Received: {data}")
-            if event_type == 'proximity_event':
-                await self.handle_proximity_event(data)
-            elif event_type == 'notification_ack':
-                await self.handle_notification_ack(data)
-        except json.JSONDecodeError:
-            await self.send(text_data=json.dumps({'error': 'Invalid JSON format'}))
+class Notification(models.Model):
+    PRIORITY_CHOICES = [
+        ('LOW', 'Low'),
+        ('MEDIUM', 'Medium'),
+        ('HIGH', 'High'),
+    ]
+    
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    beacon = models.ForeignKey(BeaconDevice, on_delete=models.CASCADE)
+    message = models.TextField()
+    priority = models.CharField(max_length=6, choices=PRIORITY_CHOICES, default='MEDIUM')
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
 
-    @database_sync_to_async
-    def mark_notification_read(self, notification_id):
-        notification = Notification.objects.get(id=notification_id, user=self.user)
-        notification.is_read = True
-        notification.save()
-
-    @database_sync_to_async
-    def create_proximity_event(self, beacon_id, distance):
-        beacon = BeaconDevice.objects.get(id=beacon_id)
-        return ProximityEvent.objects.create(
-            beacon=beacon,
-            user=self.user,
-            distance=distance
-        )
-
-    async def handle_notification_ack(self, data):
-        try:
-            notification_id = data['notification_id']
-            await self.mark_notification_read(notification_id)
-            await self.send(text_data=json.dumps({'status': 'Notification acknowledged'}))
-        except Notification.DoesNotExist:
-            await self.send(text_data=json.dumps({'error': 'Notification not found'}))
-        except Exception as e:
-            await self.send(text_data=json.dumps({'error': str(e)}))
-
-    async def handle_proximity_event(self, data):
-        try:
-            event = await self.create_proximity_event(
-                data['beacon_id'],
-                data['distance']
-            )
-            await self.channel_layer.group_send(
-                self.room_name,
-                {
-                    'type': 'proximity_update',
-                    'beacon_id': data['beacon_id'],
-                    'distance': data['distance'],
-                    'timestamp': event.timestamp.isoformat()
-                }
-            )
-        except Exception as e:
-            logger.error(f"Proximity event error: {str(e)}", exc_info=True)
-            await self.send(text_data=json.dumps({'error': str(e)}))
-
-    async def proximity_update(self, event):
-        await self.send(text_data=json.dumps(event))
+    class Meta:
+        ordering = ['-created_at']
