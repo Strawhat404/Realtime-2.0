@@ -5,12 +5,13 @@ from .models import ProximityEvent, Notification, BeaconDevice
 import logging
 
 logger = logging.getLogger(__name__)
+
 class BeaconConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.user = self.scope["user"]
         if not self.user.is_authenticated:
-            await self.close()
-            return
+         await self.close()
+         return
 
         self.room_name = f"user_{self.user.id}"
         await self.channel_layer.group_add(self.room_name, self.channel_name)
@@ -39,8 +40,16 @@ class BeaconConsumer(AsyncWebsocketConsumer):
         notification = Notification.objects.get(id=notification_id, user=self.user)
         notification.is_read = True
         notification.save()
-    
-    
+
+    @database_sync_to_async
+    def create_proximity_event(self, beacon_id, distance):
+        beacon = BeaconDevice.objects.get(id=beacon_id)
+        return ProximityEvent.objects.create(
+            beacon=beacon,
+            user=self.user,
+            distance=distance
+        )
+
     async def handle_notification_ack(self, data):
         try:
             notification_id = data['notification_id']
@@ -50,14 +59,6 @@ class BeaconConsumer(AsyncWebsocketConsumer):
             await self.send(text_data=json.dumps({'error': 'Notification not found'}))
         except Exception as e:
             await self.send(text_data=json.dumps({'error': str(e)}))
-    
-    def create_proximity_event(self, beacon_id, distance):
-        beacon = BeaconDevice.objects.get(id=beacon_id)
-        return ProximityEvent.objects.create(
-            beacon=beacon,
-            user=self.user,
-            distance=distance
-        )
 
     async def handle_proximity_event(self, data):
         try:
@@ -65,7 +66,6 @@ class BeaconConsumer(AsyncWebsocketConsumer):
                 data['beacon_id'],
                 data['distance']
             )
-            
             await self.channel_layer.group_send(
                 self.room_name,
                 {
