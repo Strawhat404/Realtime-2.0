@@ -125,8 +125,7 @@ WSGI_APPLICATION = 'beacon_project.wsgi.application'
 
 # Database
 DATABASES = {
-    'default': dj_database_url.parse('postgresql://postgres.rskjwlmmkukztmruauso:pirate776!@aws-0-eu-central-1.pooler.supabase.com:5432/postgres')
-
+    'default': dj_database_url.parse(os.getenv('DATABASE_URL', 'sqlite:///' + str(BASE_DIR / 'db.sqlite3')))
 }
 
 # Password validation
