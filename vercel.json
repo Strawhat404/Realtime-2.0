@@ -1,0 +1,11 @@
+{
+    "version": 2,
+    "builds": [
+      { "src": "beacon_project/beacon_project/wsgi.py", "use": "@vercel/python", "config": { "maxLambdaSize": "15mb", "runtime": "python3.9" } },
+      { "src": "build_files.sh", "use": "@vercel/static-build", "config": { "distDir": "beacon_project/staticfiles" } }
+    ],
+    "routes": [
+      { "src": "/static/(.*)", "dest": "/beacon_project/staticfiles/$1" },
+      { "src": "/(.*)", "dest": "beacon_project/beacon_project/wsgi.py" }
+    ]
+  }
