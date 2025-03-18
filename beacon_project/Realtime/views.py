@@ -38,7 +38,10 @@ class ProximityEventViewSet(viewsets.ModelViewSet):
     serializer_class = ProximityEventSerializer
 
     def get_queryset(self):
-        return ProximityEvent.objects.filter(user=self.request.user)
+        user = self.request.user
+        if user.is_authenticated:
+            return ProximityEvent.objects.filter(user=user)
+        return ProximityEvent.objects.none()  # Return empty queryset for anon users
 
 class NotificationViewSet(viewsets.ModelViewSet):
     """
@@ -49,7 +52,10 @@ class NotificationViewSet(viewsets.ModelViewSet):
     serializer_class = NotificationSerializer
 
     def get_queryset(self):
-        return Notification.objects.filter(user=self.request.user)
+        user = self.request.user
+        if user.is_authenticated:
+            return Notification.objects.filter(user=user)
+        return Notification.objects.none()  # Return empty queryset for anon users
 
     @swagger_auto_schema(
         method='get',
